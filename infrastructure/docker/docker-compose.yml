@@ -1,0 +1,102 @@
+version: "3.8"
+
+services:
+    # Frontend Service
+    frontend:
+        build:
+            context: ../../frontend
+            dockerfile: Dockerfile.dev
+        container_name: promanplan-frontend
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        volumes:
+            - ../../frontend:/app
+            - /app/node_modules
+        environment:
+            - NODE_ENV=development
+            - NEXT_PUBLIC_API_URL=http://localhost:3001/api
+        depends_on:
+            - backend
+        networks:
+            - promanplan-network
+
+    # Backend Service
+    backend:
+        build:
+            context: ../../backend
+            dockerfile: Dockerfile.dev
+        container_name: promanplan-backend
+        restart: unless-stopped
+        ports:
+            - "3001:3001"
+        volumes:
+            - ../../backend:/app
+            - /app/node_modules
+        environment:
+            - NODE_ENV=development
+            - PORT=3001
+            - DATABASE_URL=postgresql://postgres:postgres@db:5432/promanplan
+            - JWT_SECRET=dev-jwt-secret
+            - JWT_EXPIRATION=8h
+            - REFRESH_TOKEN_EXPIRATION=7d
+            - REDIS_URL=redis://redis:6379
+            - MAIL_HOST=mailhog
+            - MAIL_PORT=1025
+            - MAIL_USER=null
+            - MAIL_PASSWORD=null
+            - MAIL_FROM=noreply@promanplan.local
+            - FRONTEND_URL=http://localhost:3000
+        depends_on:
+            - db
+            - redis
+        networks:
+            - promanplan-network
+
+    # Database Service
+    db:
+        image: postgres:14-alpine
+        container_name: promanplan-db
+        restart: unless-stopped
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=promanplan
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        networks:
+            - promanplan-network
+
+    # Redis for caching and session management
+    redis:
+        image: redis:alpine
+        container_name: promanplan-redis
+        restart: unless-stopped
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis-data:/data
+        networks:
+            - promanplan-network
+
+    # Mail service for development
+    mailhog:
+        image: mailhog/mailhog
+        platform: linux/amd64
+        container_name: promanplan-mailhog
+        restart: unless-stopped
+        ports:
+            - "1025:1025"
+            - "8026:8025"
+        networks:
+            - promanplan-network
+
+networks:
+    promanplan-network:
+        driver: bridge
+
+volumes:
+    postgres-data:
+    redis-data:
